@@ -1,6 +1,6 @@
 <?php
 
-require_once 'vendor/autoload.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 use PhpParser\Error;
 use PhpParser\NodeDumper;
@@ -14,6 +14,7 @@ use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitorAbstract;
 use PhpParser\NodeVisitor;
 use PhpParser\Node\Scalar;
+use PhpParser\Node\Name;
 
 function dumpType($node)
 {
@@ -52,6 +53,7 @@ class YoVisitor implements NodeVisitor
         $this->addSpecialAttributes($node);
         $this->attr('start', $node->getStartFilePos());
         $this->attr('end', $node->getEndFilePos());
+        $this->attr('comment', $node->getDocComment() ?? '');
         
         // echo "enter\n";
         // echo dumpType($node);
@@ -88,6 +90,10 @@ class YoVisitor implements NodeVisitor
         return $this->writer->outputMemory();
     }
 
+    /**
+     *
+     * @param Node $node
+     */
     private function addSpecialAttributes(Node $node)
     {
         $name = $node->name ?? '';
@@ -95,15 +101,18 @@ class YoVisitor implements NodeVisitor
         {
             $this->attr('name', $name);
         }
-        if($node instanceof Scalar)
+        if($node instanceof Scalar && property_exists($node, 'value'))
         {
             $this->attr('value', $node->value);
         }
-        
+        if($node instanceof Name)
+        {
+            $this->attr('parts', join('\\', $node->parts));
+        }
     }
 }
 
-function yo($code, $ast)
+function yo($ast)
 {
     $yo = new YoVisitor();
 
@@ -131,22 +140,27 @@ function init()
     return $parser;
 }
 
-// $stdin = fopen('php://stdin', 'r');
-// echo (int)$argv[1] . "\n";
-$code = stream_get_contents(STDIN);// fread($stdin, (int)$argv[1]);
-//$code = file_get_contents('test.php');
+// $code = stream_get_contents(STDIN);// fread($stdin, (int)$argv[1]);
 $parser = init();
-try
+$nextLine = false;
+while(false !== ($nextLine = fgets(STDIN)))
 {
-    $ast = $parser->parse($code);
-}
-catch (Error $error)
-{
-    echo "Parse error: {$error->getMessage()}\n";
-    return;
+    $length = (int)trim($nextLine);
+    // printf("reading now: %d\n", $length);
+    $code = fread(STDIN, $length);
+    // $code = stream_get_contents(STDIN, $length);
+    // printf("read %d bytes\n", strlen($code));
+    try
+    {
+        $result = yo($parser->parse($code));
+        printf("%d ok\n", strlen($result));
+        echo $result;
+    }
+    catch(Error $error)
+    {
+        printf("%d error\n", strlen($error->getMessage()));
+        echo $error->getMessage();
+    }
 }
 
-// $dumper = new NodeDumper();
-// echo $dumper->dump($ast) . "\n";
-
-echo yo($code, $ast);
+// echo yo($ast);

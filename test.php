@@ -14,6 +14,8 @@ class Hej
     public function huhu(Naaa $hee)
     {
         $this->ahahaha();
+
+        $this->hejaaa($hee);
     }
 
     public function hejaaa()
@@ -25,4 +27,9 @@ class Hej
     {
 
     }
+}
+
+interface Hui
+{
+    public function bui(string $name, $email);
 }

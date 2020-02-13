@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/vendor/autoload.php';
 
+ini_set( 'display_errors', 'stderr' );
+
 use PhpParser\Error;
 use PhpParser\NodeDumper;
 use PhpParser\ParserFactory;
@@ -99,7 +101,14 @@ class YoVisitor implements NodeVisitor
         $name = $node->name ?? '';
         if($name !== '')
         {
-            $this->attr('name', $name);
+            while(\is_object($name) && property_exists($name, 'name'))
+            {
+                $name = $name->name;
+            }
+            if(\is_string($name) || $name->getType() !== 'Expr_Closure')
+            {
+                $this->attr('name', $name);
+            }
         }
         if($node instanceof Scalar && property_exists($node, 'value'))
         {
@@ -142,12 +151,28 @@ function init()
 
 // $code = stream_get_contents(STDIN);// fread($stdin, (int)$argv[1]);
 $parser = init();
+
 $nextLine = false;
 while(false !== ($nextLine = fgets(STDIN)))
 {
     $length = (int)trim($nextLine);
     // printf("reading now: %d\n", $length);
-    $code = fread(STDIN, $length);
+    $code = '';
+    do
+    {
+        $x = fread(STDIN, $length - strlen($code));
+        if($x === false)
+        {
+            throw new \Exception('fread returned false');
+        }
+        $code .= $x;
+        // printf('waiting for %d bytes' . "\n", $length - strlen($code));
+        // $length -= strlen($code);
+    } while(strlen($code) < $length);
+    if(strlen($code) > $length)
+    {
+        throw new \Exception('fread read more than the requested bytes');
+    }
     // $code = stream_get_contents(STDIN, $length);
     // printf("read %d bytes\n", strlen($code));
     try
